@@ -1,7 +1,7 @@
 extends CharacterBody2D
 
 
-@export var speed : float = 200.0
+@export var speed : float = 220.0
 @export var jump_velocity : float = -300.0
 @export var double_jump_velocity : float = -250.0
 
@@ -25,20 +25,19 @@ func _physics_process(delta):
 		if is_in_air:
 			land()
 			is_in_air = false
-		
-
 	# Handle Jump.
 	if Input.is_action_just_pressed("Jump"):
 		if is_on_floor():
-			jump() # Normal Jump
+			jump(jump_velocity,has_double_jumped) # Normal Jump
 		elif not has_double_jumped:
 			has_double_jumped = true
-			velocity.y = double_jump_velocity # Double Jump
+			animated_sprite.stop()
+			jump(double_jump_velocity,has_double_jumped) # Double Jump
 	
 	# Get the input direction and handle the movement/deceleration.
 	# As good practice, you should replace UI actions with custom gameplay actions.
-	direction = Input.get_vector("Left", "Right","Up","Crouch")
-	if direction:
+	direction = Input.get_vector("Left", "Right","Up","Crouch").normalized()
+	if direction.x != 0 and animated_sprite.animation != "Jump_end":
 		velocity.x = direction.x * speed
 	else:
 		velocity.x = move_toward(velocity.x, 0, speed)
@@ -48,10 +47,13 @@ func _physics_process(delta):
 	
 func update_animations(): # Update Animations
 	if not animation_locked:
-		if direction.x != 0 and velocity.y == 0:
-			animated_sprite.play("Run")
+		if not is_on_floor():
+			animated_sprite.play("Fall")
 		else:
-			animated_sprite.play("Idle")
+			if direction.x != 0:
+				animated_sprite.play("Run")
+			else:
+				animated_sprite.play("Idle")
 			
 func update_facing_direction():
 	if direction.x > 0:
@@ -59,10 +61,13 @@ func update_facing_direction():
 	elif direction.x < 0:
 		animated_sprite.flip_h = true
 
-func jump():
-	velocity.y = jump_velocity 
+func jump(j_velocity,state : bool):
+	if !state:
+		animated_sprite.play("Jump_start")
+	else:
+		animated_sprite.play("Jump_double")
+	velocity.y = j_velocity 
 	animation_locked = true
-	animated_sprite.play("Jump_start")
 
 func land():
 	animated_sprite.play("Jump_end")
@@ -70,5 +75,5 @@ func land():
 
 
 func _on_animated_sprite_2d_animation_finished():
-	if animated_sprite.animation == "Jump_end":
+	if (["Jump_start","Jump_double","Jump_end"].has(animated_sprite.animation)):
 		animation_locked = false
